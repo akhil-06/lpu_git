@@ -728,9 +728,51 @@
   .grad-core { background: linear-gradient(135deg, var(--core-start), var(--core-end)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .grad-pro  { background: linear-gradient(135deg, var(--pro-start), var(--pro-end));   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .grad-gold { color: var(--gold); }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap { position: fixed; right: 20px; bottom: 20px; height: 46px; width: 46px; cursor: pointer; display: block; border-radius: 50px; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.1); z-index: 10000; opacity: 0; visibility: hidden; transform: translateY(15px); transition: all 200ms linear; }
+  .progress-wrap.active-progress { opacity: 1; visibility: visible; transform: translateY(0); }
+  .progress-wrap::after { position: absolute; content: '↑'; text-align: center; line-height: 46px; font-size: 18px; color: var(--text); left: 0; top: 0; height: 46px; width: 46px; cursor: pointer; display: block; z-index: 1; transition: all 200ms linear; }
+  .progress-wrap svg path { fill: none; }
+  .progress-wrap svg.progress-circle path { stroke: var(--accent); stroke-width: 4; box-sizing: border-box; transition: all 200ms linear; }
+  
+  /* ── CUSTOM CURSOR ── */
+  @media (pointer: fine) { *, a, button, .pill, .track-card, .phase-card { cursor: none !important; } }
+  .cursor-dot, .cursor-outline { position: fixed; top: 0; left: 0; transform: translate(-50%, -50%); border-radius: 50%; z-index: 99999; pointer-events: none; }
+  .cursor-dot { width: 8px; height: 8px; background-color: var(--accent); }
+  .cursor-outline { width: 40px; height: 40px; border: 1px solid rgba(0, 212, 170, 0.5); transition: width 0.2s, height 0.2s, border 0.2s; }
+  .cursor-hover .cursor-outline { width: 60px; height: 60px; border-color: rgba(255, 107, 53, 0.8); background-color: rgba(255, 107, 53, 0.1); }
+
+  /* ── PRELOADER ── */
+  .preloader { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg); display: flex; justify-content: center; align-items: center; z-index: 999999; transition: opacity 0.8s ease, visibility 0.8s ease; }
+  .preloader-hidden { opacity: 0; visibility: hidden; }
+  .preloader-brand { font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800; color: var(--core-start); position: relative; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(0.95); opacity: 0.8; } }
+
+  /* ── TILT Hover Enhancement ── */
+  .js-tilt-glare { border-radius: 20px; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.0/vanilla-tilt.min.js"></script>
 </head>
 <body>
+
+<!-- PRELOADER -->
+<div class="preloader">
+  <div class="preloader-brand">CODEX</div>
+</div>
+
+<!-- CUSTOM CURSOR -->
+<div class="cursor-dot"></div>
+<div class="cursor-outline"></div>
+
+<!-- PROGRESS WRAP -->
+<div class="progress-wrap">
+  <svg class="progress-circle svg-content" width="100%" height="100%" viewBox="-1 -1 102 102">
+    <path d="M50,1 a49,49 0 0,1 0,98 a49,49 0 0,1 0,-98"/>
+  </svg>
+</div>
 
 <!-- NAV -->
 <nav>
@@ -1211,20 +1253,147 @@
 </footer>
 
 <script>
-  // Intersection Observer for scroll animations
-  const revealEls = document.querySelectorAll('.reveal, .phase-block');
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach((entry, i) => {
-      if (entry.isIntersecting) {
-        setTimeout(() => {
-          entry.target.classList.add('visible');
-        }, entry.target.classList.contains('phase-block') ? 80 : 0);
-        observer.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.1 });
+  // Preloader Logic
+  const hidePreloader = () => {
+    const p = document.querySelector('.preloader');
+    if (p) p.classList.add('preloader-hidden');
+  };
+  if (document.readyState === 'complete') hidePreloader();
+  else window.addEventListener('load', () => setTimeout(hidePreloader, 800));
+  // Failsafe: always hide after 2.5s maximum
+  setTimeout(hidePreloader, 2500);
 
-  revealEls.forEach(el => observer.observe(el));
+  // Custom Cursor Logic
+  const cursorDot = document.querySelector('.cursor-dot');
+  const cursorOutline = document.querySelector('.cursor-outline');
+  
+  if (window.innerWidth > 768) {
+    window.addEventListener('mousemove', (e) => {
+      const posX = e.clientX;
+      const posY = e.clientY;
+      
+      cursorDot.style.left = `${posX}px`;
+      cursorDot.style.top = `${posY}px`;
+      
+      cursorOutline.animate({
+        left: `${posX}px`,
+        top: `${posY}px`
+      }, { duration: 500, fill: "forwards" });
+    });
+
+    const hoverElements = document.querySelectorAll('a, .track-card, .phase-card, .pill, button');
+    hoverElements.forEach(el => {
+      el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
+      el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
+    });
+  }
+
+  // Scroll Progress Logic
+  const progressPath = document.querySelector('.progress-wrap path');
+  const pathLength = progressPath.getTotalLength();
+  progressPath.style.transition = progressPath.style.WebkitTransition = 'none';
+  progressPath.style.strokeDasharray = pathLength + ' ' + pathLength;
+  progressPath.style.strokeDashoffset = pathLength;
+  progressPath.getBoundingClientRect();
+  progressPath.style.transition = progressPath.style.WebkitTransition = 'stroke-dashoffset 10ms linear';
+  const updateProgress = function () {
+    const scroll = window.scrollY || window.pageYOffset;
+    const height = document.documentElement.scrollHeight - window.innerHeight;
+    const progress = pathLength - (scroll * pathLength / height);
+    progressPath.style.strokeDashoffset = progress;
+  }
+  updateProgress();
+  window.addEventListener('scroll', updateProgress);
+  const offset = 50;
+  window.addEventListener('scroll', function() {
+    if (window.scrollY > offset) {
+      document.querySelector('.progress-wrap').classList.add('active-progress');
+    } else {
+      document.querySelector('.progress-wrap').classList.remove('active-progress');
+    }
+  });
+  document.querySelector('.progress-wrap').addEventListener('click', function(event) {
+    event.preventDefault();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return false;
+  });
+
+  // VanillaTilt Initialization
+  if (typeof VanillaTilt !== 'undefined') {
+    VanillaTilt.init(document.querySelectorAll(".track-card, .skill-card, .phase-card"), {
+      max: 2,
+      speed: 400,
+      glare: true,
+      "max-glare": 0.1,
+    });
+  }
+
+  // GSAP + ScrollTrigger
+  gsap.registerPlugin(ScrollTrigger);
+
+  // Hero Animations
+  const heroTl = gsap.timeline({delay: 0.5});
+  heroTl.from(".hero .eyebrow", {y: 30, opacity: 0, duration: 0.6, ease: "power3.out"})
+        .from(".hero h1", {y: 40, opacity: 0, duration: 0.8, ease: "power3.out"}, "-=0.4")
+        .from(".hero-sub", {y: 20, opacity: 0, duration: 0.6, ease: "power3.out"}, "-=0.4")
+        .from(".track-pills .pill", {y: 20, opacity: 0, duration: 0.6, stagger: 0.1, ease: "power3.out"}, "-=0.4");
+
+  // General Reveal elements
+  gsap.utils.toArray('.reveal').forEach(el => {
+    gsap.fromTo(el, 
+      { y: 40, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        duration: 0.8,
+        ease: "power2.out",
+        scrollTrigger: {
+          trigger: el,
+          start: "top 85%",
+          toggleActions: "play none none reverse"
+        }
+      }
+    );
+  });
+
+  // Phase Blocks Reveal
+  gsap.utils.toArray('.phase-block').forEach(block => {
+    gsap.fromTo(block,
+      { x: -40, opacity: 0 },
+      {
+        x: 0,
+        opacity: 1,
+        duration: 0.6,
+        ease: "power2.out",
+        scrollTrigger: {
+          trigger: block,
+          start: "top 85%",
+          toggleActions: "play none none reverse"
+        }
+      }
+    );
+  });
+
+  // Roadmap Line Fill
+  gsap.utils.toArray('.rm-step').forEach(step => {
+    const line = step.querySelector('.rm-line');
+    if(line) {
+      gsap.fromTo(line, 
+        { scaleY: 0, transformOrigin: 'top' },
+        {
+          scaleY: 1,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: step,
+            start: "top center",
+            end: "bottom center",
+            scrub: true
+          }
+        }
+      );
+    }
+  });
+
 </script>
 </body>
 </html>
